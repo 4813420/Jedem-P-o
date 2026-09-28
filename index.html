@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#111114">
+<title>Jedem Píčo 🎡</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:#111114;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Arial,sans-serif;min-height:100vh}
+.wrap{max-width:720px;margin:auto;padding:18px 16px 34px}
+h1{text-align:center;font-size:34px;margin:6px 0 18px;font-weight:900}
+.card{background:#1b1b20;border:1px solid #303038;border-radius:22px;padding:16px;margin-bottom:14px;box-shadow:0 8px 30px #0005}
+.wheelbox{position:relative;display:grid;place-items:center}
+canvas{width:min(88vw,620px);height:min(88vw,620px);max-width:620px;max-height:620px}
+.pointer{position:absolute;top:-2px;z-index:2;width:0;height:0;border-left:15px solid transparent;border-right:15px solid transparent;border-top:0;border-bottom:30px solid #fff;filter:drop-shadow(0 2px 3px #000)}
+button,input{font:inherit}
+button{border:0;border-radius:14px;padding:13px 16px;font-weight:800;cursor:pointer}
+#spin{display:block;width:100%;font-size:20px;background:#fff;color:#111;margin-top:14px}
+.row{display:flex;gap:8px}
+input{flex:1;background:#101014;border:1px solid #3a3a43;color:#fff;border-radius:14px;padding:13px 14px;outline:none}
+.small{font-size:13px;color:#aaa}
+.count{text-align:right;color:#aaa;font-size:13px;margin-top:8px}
+.items{max-height:300px;overflow:auto;margin-top:12px}
+.item{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #2d2d33}
+.item span{flex:1;word-break:break-word}
+.item button{padding:8px 10px;background:#292930;color:#fff}
+.danger{background:#3a2023;color:#ffb9bf}
+.result{text-align:center;min-height:36px;font-size:24px;font-weight:900;margin-top:12px}
+@media(prefers-color-scheme:light){ }
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>🎡 J E D E M PÍČO</h1>
+
+<div class="card wheelbox">
+<div class="pointer"></div>
+<canvas id="wheel" width="900" height="900"></canvas>
+</div>
+<button id="spin">🎡 TOČIŤ</button>
+<div id="result" class="result"></div>
+
+<div class="card">
+<div class="row">
+<input id="newItem" maxlength="80" placeholder="Napíš možnosť...">
+<button id="add">➕</button>
+</div>
+<div class="count" id="count">0 / 200</div>
+<div class="items" id="items"></div>
+<button id="clear" class="danger" style="width:100%;margin-top:12px">🗑️ Vymazať všetko</button>
+</div>
+</div>
+
+<script>
+const canvas=document.getElementById('wheel'),ctx=canvas.getContext('2d');
+const input=document.getElementById('newItem'),itemsEl=document.getElementById('items');
+const countEl=document.getElementById('count'),resultEl=document.getElementById('result');
+const spinBtn=document.getElementById('spin');
+let items=JSON.parse(localStorage.getItem('jedemPicoItems')||'[]');
+let rotation=0, spinning=false;
+
+const colors=[
+'#ff5f6d','#ffc371','#36d1dc','#5b86e5','#a855f7','#ec4899','#22c55e','#f97316',
+'#14b8a6','#eab308','#ef4444','#06b6d4','#8b5cf6','#84cc16','#f43f5e','#3b82f6'
+];
+
+function save(){localStorage.setItem('jedemPicoItems',JSON.stringify(items))}
+function render(){
+ countEl.textContent=items.length+' / 200';
+ itemsEl.innerHTML='';
+ items.forEach((x,i)=>{
+  const d=document.createElement('div');d.className='item';
+  const s=document.createElement('span');s.textContent=x;
+  const b=document.createElement('button');b.textContent='✕';
+  b.onclick=()=>{items.splice(i,1);save();render();draw()};
+  d.append(s,b);itemsEl.appendChild(d);
+ });
+ draw();
+}
+function draw(){
+ const n=items.length||1,c=450,r=425;
+ ctx.clearRect(0,0,900,900);
+ if(!items.length){
+   ctx.beginPath();ctx.arc(c,c,r,0,Math.PI*2);ctx.fillStyle='#292930';ctx.fill();
+   ctx.fillStyle='#aaa';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 36px -apple-system,Arial';
+   ctx.fillText('PRIDAJ MOŽNOSTI',c,c);return;
+ }
+ const step=Math.PI*2/n;
+ ctx.save();ctx.translate(c,c);ctx.rotate(rotation);
+ for(let i=0;i<n;i++){
+   const a0=i*step,a1=(i+1)*step;
+   ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,r,a0,a1);ctx.closePath();
+   ctx.fillStyle=colors[i%colors.length];ctx.fill();
+   ctx.strokeStyle='#111114';ctx.lineWidth=3;ctx.stroke();
+   ctx.save();ctx.rotate(a0+step/2);
+   ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillStyle='#fff';
+   ctx.shadowColor='#000';ctx.shadowBlur=4;
+   let size=n>60?14:n>35?17:n>18?21:25;
+   ctx.font=`900 ${size}px -apple-system,Arial`;
+   let text=items[i]; if(text.length>26) text=text.slice(0,25)+'…';
+   ctx.fillText(text,r-20,0);
+   ctx.restore();
+ }
+ ctx.restore();
+ ctx.beginPath();ctx.arc(c,c,54,0,Math.PI*2);ctx.fillStyle='#111114';ctx.fill();
+ ctx.beginPath();ctx.arc(c,c,45,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+}
+function add(){
+ const v=input.value.trim();
+ if(!v||items.length>=200)return;
+ items.push(v);input.value='';save();render();input.focus();
+}
+document.getElementById('add').onclick=add;
+input.addEventListener('keydown',e=>{if(e.key==='Enter')add()});
+document.getElementById('clear').onclick=()=>{
+ if(confirm('Naozaj vymazať všetkých '+items.length+' možností?')){items=[];save();resultEl.textContent='';render()}
+};
+spinBtn.onclick=()=>{
+ if(spinning||items.length<2){
+   if(items.length<2) resultEl.textContent='Pridaj aspoň 2 možnosti 😆';
+   return;
+ }
+ spinning=true;spinBtn.disabled=true;resultEl.textContent='';
+ const n=items.length,step=Math.PI*2/n;
+ const winner=Math.floor(Math.random()*n);
+ const target=-Math.PI/2-(winner*step+step/2);
+ let delta=((target-rotation)%(Math.PI*2)+Math.PI*2)%(Math.PI*2);
+ delta+=Math.PI*2*(6+Math.floor(Math.random()*3));
+ const start=rotation,end=rotation+delta,dur=4300+Math.random()*900,t0=performance.now();
+ function anim(t){
+  const p=Math.min(1,(t-t0)/dur),ease=1-Math.pow(1-p,4);
+  rotation=start+(end-start)*ease;draw();
+  if(p<1)requestAnimationFrame(anim);else{
+   rotation=((rotation%(Math.PI*2))+Math.PI*2)%(Math.PI*2);
+   resultEl.textContent='🏆 '+items[winner];
+   spinning=false;spinBtn.disabled=false;
+  }
+ }
+ requestAnimationFrame(anim);
+};
+render();
+</script>
+</body>
+</html>
